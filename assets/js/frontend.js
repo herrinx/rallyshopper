@@ -16,15 +16,6 @@
     $(function() {
         console.log('RallyShopper DOM ready');
         
-        // Header scroll effect
-        $(window).on('scroll', function() {
-            if ($(window).scrollTop() > 50) {
-                $('.app-header').addClass('scrolled');
-            } else {
-                $('.app-header').removeClass('scrolled');
-            }
-        });
-        
         // Load categories on init
         loadCategories();
         

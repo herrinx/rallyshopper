@@ -44,15 +44,13 @@ class RallyShopper_Shortcodes {
             <!-- Header -->
             <div class="app-header">
                 <h1>RallyShopper</h1>
+                <div class="cart-bar">
+                    <a href="https://www.kingsoopers.com/cart" target="_blank" class="rs-cart-link">🛒 Cart</a>
+                </div>
                 <div class="header-actions">
                     <button class="button" id="rs-btn-meal-plan">📅 Meal Plan</button>
                     <button class="button button-primary" id="rs-btn-new">+ New Recipe</button>
                 </div>
-            </div>
-            
-            <!-- Cart Link -->
-            <div class="cart-bar" id="rs-cart-display">
-                <a href="https://www.kingsoopers.com/cart" target="_blank" class="rs-cart-link">🛒 View Cart</a>
             </div>
             
             <!-- Recipe List View -->
