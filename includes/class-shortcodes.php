@@ -46,14 +46,12 @@ class RallyShopper_Shortcodes {
                 <h1>🍳 RallyShopper</h1>
                 <div class="header-actions">
                     <button class="button button-primary" id="rs-btn-new">+ New Recipe</button>
-                    <button class="button" id="rs-btn-refresh-cart">🛒 Refresh Cart</button>
                 </div>
             </div>
             
-            <!-- Cart Display -->
+            <!-- Cart Link -->
             <div class="cart-bar" id="rs-cart-display">
-                <span class="cart-label">Cart:</span>
-                <span class="cart-contents">Loading...</span>
+                <a href="https://www.kingsoopers.com/cart" target="_blank" class="rs-cart-link">🛒 View Kroger Cart</a>
             </div>
             
             <!-- Recipe List View -->

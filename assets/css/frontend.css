@@ -36,20 +36,24 @@
 
 /* Cart Bar */
 .cart-bar {
-    background: #f8f9fa;
+    background: #28a745;
     padding: 12px 20px;
     border-radius: 6px;
     margin-bottom: 20px;
     display: flex;
-    gap: 10px;
+    align-items: center;
+    justify-content: center;
 }
 
-.cart-label {
+.rs-cart-link {
+    color: white;
+    text-decoration: none;
     font-weight: 600;
+    font-size: 15px;
 }
 
-.cart-contents {
-    color: #666;
+.rs-cart-link:hover {
+    text-decoration: underline;
 }
 
 /* Views */
