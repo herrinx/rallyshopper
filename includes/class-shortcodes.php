@@ -43,54 +43,101 @@ class RallyShopper_Shortcodes {
         <div class="rallyshopper-app">
             <!-- Header -->
             <div class="app-header">
-                <h1>🍳 RallyShopper</h1>
+                <h1>RallyShopper</h1>
                 <div class="header-actions">
+                    <button class="button" id="rs-btn-meal-plan">📅 Meal Plan</button>
                     <button class="button button-primary" id="rs-btn-new">+ New Recipe</button>
                 </div>
             </div>
             
             <!-- Cart Link -->
             <div class="cart-bar" id="rs-cart-display">
-                <a href="https://www.kingsoopers.com/cart" target="_blank" class="rs-cart-link">🛒 View Kroger Cart</a>
+                <a href="https://www.kingsoopers.com/cart" target="_blank" class="rs-cart-link">🛒 View Cart</a>
             </div>
             
             <!-- Recipe List View -->
             <div id="rs-view-list" class="view active">
-                <div class="rs-search-bar">
-                    <input type="text" id="rs-live-search" placeholder="Search recipes, ingredients..." autocomplete="off">
-                    <span class="rs-search-icon">🔍</span>
+                <!-- Hero Section -->
+                <div class="rs-hero">
+                    <div class="rs-hero-content">
+                        <h2>Plan. Shop. Cook.</h2>
+                        <p>Transform your meal planning into a seamless culinary journey</p>
+                        <button class="button button-primary" id="rs-hero-new-recipe">Create Your First Recipe</button>
+                    </div>
                 </div>
-                <div class="rs-filters">
-                    <select id="rs-category-filter">
-                        <option value="">All Categories</option>
-                    </select>
-                    <button class="button" id="rs-btn-manage-categories">Manage Categories</button>
-                    <button class="button" id="rs-btn-meal-plan">📅 Meal Plan</button>
+                
+                <!-- Search Section -->
+                <div class="rs-search-section">
+                    <div class="rs-search-bar">
+                        <input type="text" id="rs-live-search" placeholder="Search recipes, ingredients..." autocomplete="off">
+                        <span class="rs-search-icon">🔍</span>
+                    </div>
+                    <div class="rs-filters">
+                        <select id="rs-category-filter">
+                            <option value="">All Categories</option>
+                        </select>
+                        <button class="button" id="rs-btn-manage-categories">🏷️ Categories</button>
+                    </div>
                 </div>
+                
+                <!-- Recipe Grid -->
                 <div class="recipe-grid" id="rs-recipe-grid">
                     <?php foreach ( $recipes as $recipe ) : ?>
                         <div class="recipe-card" data-id="<?php echo esc_attr( $recipe['post']->ID ); ?>">
                             <?php if ( has_post_thumbnail( $recipe['post']->ID ) ) : ?>
                                 <?php echo get_the_post_thumbnail( $recipe['post']->ID, 'medium', array( 'class' => 'recipe-thumb' ) ); ?>
                             <?php else : ?>
-                                <div class="recipe-thumb placeholder"></div>
+                                <div class="recipe-thumb placeholder">🍽️</div>
                             <?php endif; ?>
-                            <h3><?php echo esc_html( $recipe['post']->post_title ); ?></h3>
-                            <div class="recipe-meta">
-                                <?php echo intval( count( $recipe['ingredients'] ) ); ?> ingredients · 
-                                <?php echo esc_html( RallyShopper_Recipe::format_time( $recipe['meta']['prep_time'] + $recipe['meta']['cook_time'] ) ); ?>
+                            <div class="recipe-card-content">
+                                <h3><?php echo esc_html( $recipe['post']->post_title ); ?></h3>
+                                <div class="recipe-meta">
+                                    <span>⏱️ <?php echo esc_html( RallyShopper_Recipe::format_time( $recipe['meta']['prep_time'] + $recipe['meta']['cook_time'] ) ); ?></span>
+                                    <span>👥 <?php echo intval( $recipe['meta']['servings'] ); ?> servings</span>
+                                </div>
+                                <div class="recipe-categories" id="recipe-cats-<?php echo esc_attr( $recipe['post']->ID ); ?>"></div>
                             </div>
-                            <div class="recipe-categories" id="recipe-cats-<?php echo esc_attr( $recipe['post']->ID ); ?>"></div>
                             <div class="recipe-actions">
-                                <button class="button rs-btn-edit" data-id="<?php echo esc_attr( $recipe['post']->ID ); ?>">Edit</button>
+                                <button class="button rs-btn-edit" data-id="<?php echo esc_attr( $recipe['post']->ID ); ?>">✏️ Edit</button>
                                 <button class="button" onclick="addToMealPlan(<?php echo esc_attr( $recipe['post']->ID ); ?>, '<?php echo esc_js( $recipe['post']->post_title ); ?>')">📅</button>
                                 <?php if ( $connected && ! empty( $recipe['ingredients'] ) ) : ?>
-                                    <button class="button button-primary rs-btn-cart" data-id="<?php echo esc_attr( $recipe['post']->ID ); ?>">Add to Cart</button>
+                                    <button class="button button-primary rs-btn-cart" data-id="<?php echo esc_attr( $recipe['post']->ID ); ?>">🛒 Add to Cart</button>
                                 <?php endif; ?>
                                 <button class="button rs-btn-delete" data-id="<?php echo esc_attr( $recipe['post']->ID ); ?>">🗑️</button>
                             </div>
                         </div>
                     <?php endforeach; ?>
+                </div>
+                
+                <!-- Seasonal Inspiration -->
+                <div class="rs-seasonal">
+                    <h2>🌿 Seasonal Inspiration</h2>
+                    <div class="seasonal-scroll">
+                        <div class="seasonal-item">
+                            <div style="background: linear-gradient(135deg, #ff6b6b, #ee5a24); height: 150px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">🍅</div>
+                            <h4>Summer Tomatoes</h4>
+                        </div>
+                        <div class="seasonal-item">
+                            <div style="background: linear-gradient(135deg, #f9ca24, #f0932b); height: 150px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">🌽</div>
+                            <h4>Sweet Corn</h4>
+                        </div>
+                        <div class="seasonal-item">
+                            <div style="background: linear-gradient(135deg, #6ab04c, #badc58); height: 150px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">🥬</div>
+                            <h4>Fresh Greens</h4>
+                        </div>
+                        <div class="seasonal-item">
+                            <div style="background: linear-gradient(135deg, #e17055, #fab1a0); height: 150px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">🍑</div>
+                            <h4>Stone Fruit</h4>
+                        </div>
+                        <div class="seasonal-item">
+                            <div style="background: linear-gradient(135deg, #a29bfe, #6c5ce7); height: 150px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">🫐</div>
+                            <h4>Berries</h4>
+                        </div>
+                        <div class="seasonal-item">
+                            <div style="background: linear-gradient(135deg, #fdcb6e, #e17055); height: 150px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">🥕</div>
+                            <h4>Root Vegetables</h4>
+                        </div>
+                    </div>
                 </div>
             </div>
             

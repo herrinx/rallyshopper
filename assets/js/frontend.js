@@ -16,6 +16,15 @@
     $(function() {
         console.log('RallyShopper DOM ready');
         
+        // Header scroll effect
+        $(window).on('scroll', function() {
+            if ($(window).scrollTop() > 50) {
+                $('.app-header').addClass('scrolled');
+            } else {
+                $('.app-header').removeClass('scrolled');
+            }
+        });
+        
         // Load categories on init
         loadCategories();
         
@@ -30,7 +39,7 @@
             
             if (query.length === 0) {
                 // Show all recipes
-                $('.recipe-card').show();
+                $('.recipe-card').show().removeClass('filtered-out');
                 $('.rs-search-results-info').remove();
                 return;
             }
@@ -60,7 +69,12 @@
         $(document).on('click', '#rs-btn-meal-plan', function() {
             showView('meal-plan');
         });
-        
+
+        // Hero new recipe button
+        $(document).on('click', '#rs-hero-new-recipe', function() {
+            $('#rs-btn-new').trigger('click');
+        });
+
         // Back from meal plan
         $(document).on('click', '#rs-btn-back-from-plan', function() {
             showView('list');
