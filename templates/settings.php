@@ -4,7 +4,7 @@
  */
 ?>
 <div class="wrap rallyshopper-wrap">
-    <h1>Herrecipes Settings</h1>
+    <h1>RallyShopper Settings</h1>
     
     <form method="post" class="rallyshopper-form" style="max-width: 600px;">
         <?php wp_nonce_field( 'rallyshopper_settings' ); ?>
@@ -29,7 +29,24 @@
             <label for="default_servings">Default Servings</label>
             <input type="number" id="default_servings" name="default_servings" value="<?php echo esc_attr( $default_servings ); ?>" min="1" style="width: 100px;">
         </div>
-        
+
+        <h2>Store Location</h2>
+        <p class="description">Select your preferred King Soopers store for local pricing and product selection. This helps show accurate prices and products available in your area. Delivery availability is determined by Kroger at checkout based on your delivery address.</p>
+
+        <div class="form-field">
+            <label for="kroger_location_id">Store Location ID</label>
+            <input type="text" id="kroger_location_id" name="kroger_location_id" value="<?php echo esc_attr( get_option( 'rallyshopper_kroger_location_id', '' ) ); ?>" class="regular-text">
+            <p class="description">Enter your store location ID for local pricing, or leave blank to search without location filtering.</p>
+        </div>
+
+        <div class="form-field">
+            <label for="kroger_zip_code">Zip Code (for store search)</label>
+            <input type="text" id="kroger_zip_code" name="kroger_zip_code" value="<?php echo esc_attr( get_option( 'rallyshopper_kroger_zip', '' ) ); ?>" class="regular-text" placeholder="80202">
+            <button type="button" id="rallyshopper-find-stores" class="button">Find Nearby Stores</button>
+            <div id="rallyshopper-store-results"></div>
+            <p class="description"><strong>Note:</strong> Store selection affects pricing and local product availability only. Actual delivery availability is confirmed by Kroger at checkout when you select your delivery address.</p>
+        </div>
+
         <div class="form-field">
             <button type="submit" name="rallyshopper_save_settings" class="button button-primary">Save Settings</button>
         </div>
@@ -41,7 +58,7 @@
         <li>Create an account and sign in</li>
         <li>Create a new application
             <ul>
-                <li>Name: Herrecipes</li>
+                <li>Name: RallyShopper</li>
                 <li>Redirect URI: <code><?php echo admin_url( 'admin.php?page=rallyshopper-auth' ); ?></code></li>
                 <li>Client Type: Confidential</li>
             </ul>

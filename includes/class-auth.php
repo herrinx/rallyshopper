@@ -15,9 +15,9 @@ class RallyShopper_Auth {
             $result = $kroger->refresh_token();
             
             if ( is_wp_error( $result ) ) {
-                Herrecipes::log( 'Token refresh failed: ' . $result->get_error_message(), 'error' );
+                RallyShopper::log( 'Token refresh failed: ' . $result->get_error_message(), 'error' );
             } else {
-                Herrecipes::log( 'Token refreshed successfully' );
+                RallyShopper::log( 'Token refreshed successfully' );
             }
         }
     }

@@ -9,7 +9,7 @@ class RallyShopper_Recipe {
         $labels = array(
             'name'                  => 'Recipes',
             'singular_name'         => 'Recipe',
-            'menu_name'             => 'Herrecipes',
+            'menu_name'             => 'RallyShopper',
             'add_new'               => 'Add New Recipe',
             'add_new_item'          => 'Add New Recipe',
             'edit_item'             => 'Edit Recipe',
@@ -68,11 +68,18 @@ class RallyShopper_Recipe {
                 'cook_time'   => $recipe_data ? $recipe_data->cook_time : 0,
                 'difficulty'  => $recipe_data ? $recipe_data->difficulty : 'medium',
             ),
+            'thumbnail'   => get_the_post_thumbnail_url( $post_id, 'medium' ),
         );
     }
     
     // Save recipe
     public static function save_recipe( $data ) {
+        // Debug: Log what we received
+        $db = new RallyShopper_Database();
+        if ( isset( $data['ingredients'] ) ) {
+            $db->add_log( 'debug', 'recipe_save', 'RECEIVED: ' . json_encode( $data['ingredients'] ) );
+        }
+        
         // Validate
         if ( empty( $data['title'] ) ) {
             return new WP_Error( 'missing_title', 'Recipe title is required' );
@@ -98,7 +105,6 @@ class RallyShopper_Recipe {
         }
         
         // Save recipe meta
-        $db = new RallyShopper_Database();
         $recipe_db_data = array(
             'post_id'    => $post_id,
             'servings'   => isset( $data['servings'] ) ? intval( $data['servings'] ) : 4,
@@ -116,12 +122,16 @@ class RallyShopper_Recipe {
         
         // Save ingredients
         if ( isset( $data['ingredients'] ) && is_array( $data['ingredients'] ) ) {
+            $db->add_log( 'debug', 'recipe_save', 'Saving ' . count( $data['ingredients'] ) . ' ingredients' );
+            
             // Delete existing ingredients if updating
             if ( $existing ) {
                 $db->delete_recipe_ingredients( $existing->id );
             }
             
             foreach ( $data['ingredients'] as $index => $ingredient ) {
+                $is_staple = isset( $ingredient['is_staple'] ) ? intval( $ingredient['is_staple'] ) : 0;
+                $db->add_log( 'debug', 'recipe_save', 'Ingredient ' . $index . ': ' . $ingredient['name'] . ' is_staple=' . $is_staple );
                 $db->save_ingredient( array(
                     'recipe_id'           => $recipe_id,
                     'name'                => sanitize_text_field( $ingredient['name'] ),
@@ -132,6 +142,7 @@ class RallyShopper_Recipe {
                     'kroger_description'  => isset( $ingredient['kroger_description'] ) ? sanitize_text_field( $ingredient['kroger_description'] ) : null,
                     'kroger_image_url'    => isset( $ingredient['kroger_image_url'] ) ? esc_url_raw( $ingredient['kroger_image_url'] ) : null,
                     'kroger_price'        => isset( $ingredient['kroger_price'] ) ? floatval( $ingredient['kroger_price'] ) : null,
+                    'is_staple'           => $is_staple,
                     'sort_order'          => $index,
                 ) );
             }

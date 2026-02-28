@@ -1,22 +1,25 @@
 <?php
 /**
- * Database operations for Herrecipes
+ * Database operations for RallyShopper
  */
 
 class RallyShopper_Database {
     
     public function install() {
         global $wpdb;
-        
+
         $charset_collate = $wpdb->get_charset_collate();
         $table_recipes = $wpdb->prefix . 'rallyshopper_recipes';
         $table_ingredients = $wpdb->prefix . 'rallyshopper_ingredients';
         $table_purchases = $wpdb->prefix . 'rallyshopper_purchases';
         $table_staples = $wpdb->prefix . 'rallyshopper_staples';
         $table_logs = $wpdb->prefix . 'rallyshopper_logs';
-        
+
+        // Log the prefix being used
+        $this->add_log( 'debug', 'db_install', 'Creating tables with prefix: ' . $wpdb->prefix );
+
         $sql = "
-            CREATE TABLE IF NOT EXISTS {$table_recipes} (
+            CREATE TABLE {$table_recipes} (
                 id bigint(20) NOT NULL AUTO_INCREMENT,
                 post_id bigint(20) NOT NULL,
                 servings int(11) DEFAULT 4,
@@ -29,7 +32,7 @@ class RallyShopper_Database {
                 KEY post_id (post_id)
             ) {$charset_collate};
             
-            CREATE TABLE IF NOT EXISTS {$table_ingredients} (
+            CREATE TABLE {$table_ingredients} (
                 id bigint(20) NOT NULL AUTO_INCREMENT,
                 recipe_id bigint(20) NOT NULL,
                 name varchar(255) NOT NULL,
@@ -48,7 +51,7 @@ class RallyShopper_Database {
                 KEY kroger_product_id (kroger_product_id)
             ) {$charset_collate};
             
-            CREATE TABLE IF NOT EXISTS {$table_purchases} (
+            CREATE TABLE {$table_purchases} (
                 id bigint(20) NOT NULL AUTO_INCREMENT,
                 ingredient_id bigint(20) NOT NULL,
                 kroger_product_id varchar(100) NOT NULL,
@@ -64,7 +67,7 @@ class RallyShopper_Database {
                 KEY purchased_at (purchased_at)
             ) {$charset_collate};
             
-            CREATE TABLE IF NOT EXISTS {$table_staples} (
+            CREATE TABLE {$table_staples} (
                 id bigint(20) NOT NULL AUTO_INCREMENT,
                 kroger_product_id varchar(100) NOT NULL,
                 kroger_upc varchar(50) NOT NULL,
@@ -80,7 +83,7 @@ class RallyShopper_Database {
                 KEY kroger_upc (kroger_upc)
             ) {$charset_collate};
             
-            CREATE TABLE IF NOT EXISTS {$table_logs} (
+            CREATE TABLE {$table_logs} (
                 id bigint(20) NOT NULL AUTO_INCREMENT,
                 level varchar(20) NOT NULL DEFAULT 'info',
                 action varchar(100) NOT NULL,
@@ -97,9 +100,12 @@ class RallyShopper_Database {
         ";
         
         require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
-        dbDelta( $sql );
-        
-        update_option( 'rallyshopper_db_version', HERRECIPES_DB_VERSION );
+        $result = dbDelta( $sql );
+
+        // Log dbDelta results
+        $this->add_log( 'debug', 'db_install_result', 'dbDelta result: ' . json_encode( $result ) );
+
+        update_option( 'rallyshopper_db_version', RALLYSHOPPER_DB_VERSION );
     }
     
     // Recipe methods
@@ -117,7 +123,11 @@ class RallyShopper_Database {
             $wpdb->update( $table, $data, array( 'id' => $data['id'] ) );
             return $data['id'];
         } else {
-            $wpdb->insert( $table, $data );
+            $result = $wpdb->insert( $table, $data );
+            if ( $result === false ) {
+                $this->add_log( 'error', 'db_insert_recipe', 'Insert failed: ' . $wpdb->last_error . ' | Data: ' . json_encode($data) );
+                return 0;
+            }
             return $wpdb->insert_id;
         }
     }
@@ -135,6 +145,8 @@ class RallyShopper_Database {
     public function save_ingredient( $data ) {
         global $wpdb;
         $table = $wpdb->prefix . 'rallyshopper_ingredients';
+        
+        $this->add_log( 'debug', 'save_ingredient', 'Saving: ' . $data['name'] . ' is_staple=' . ($data['is_staple'] ?? 'NOT SET') );
         
         if ( isset( $data['id'] ) && $data['id'] ) {
             $wpdb->update( $table, $data, array( 'id' => $data['id'] ) );

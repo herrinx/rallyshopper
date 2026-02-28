@@ -105,7 +105,9 @@ $db = new RallyShopper_Database();
                             
                             <div class="ingredient-inputs">
                                 <input type="text" class="ingredient-amount" value="<?php echo esc_attr( $ingredient->amount ); ?>" placeholder="Amount">
-                                <input type="text" class="ingredient-unit" value="<?php echo esc_attr( $ingredient->unit ); ?>" placeholder="Unit">
+                                <label class="staple-label" style="margin-left: 10px;">
+                                    <input type="checkbox" class="ingredient-is-staple" <?php checked( $ingredient->is_staple, 1 ); ?>> Staple
+                                </label>
                                 <input type="hidden" class="ingredient-name" value="<?php echo esc_attr( $ingredient->name ); ?>">
                             </div>
                             

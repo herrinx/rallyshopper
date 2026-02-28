@@ -12,6 +12,7 @@ class RallyShopper_AJAX {
         add_action( 'wp_ajax_rallyshopper_link_ingredient', array( $this, 'ajax_link_ingredient' ) );
         add_action( 'wp_ajax_rallyshopper_add_to_cart', array( $this, 'ajax_add_to_cart' ) );
         add_action( 'wp_ajax_rallyshopper_get_cart', array( $this, 'ajax_get_cart' ) );
+        add_action( 'wp_ajax_rallyshopper_find_stores', array( $this, 'ajax_find_stores' ) );
     }
     
     // Save recipe via AJAX
@@ -36,7 +37,20 @@ class RallyShopper_AJAX {
             $data['post_id'] = intval( $_POST['post_id'] );
         }
         
-        if ( ! empty( $_POST['ingredients'] ) ) {
+        // Get ingredients from JSON or array
+        $ingredients = array();
+        if ( ! empty( $_POST['ingredients_json'] ) ) {
+            // WordPress may have already stripped slashes, so check first
+            $json_data = $_POST['ingredients_json'];
+            if ( strpos( $json_data, '\\"' ) !== false || strpos( $json_data, '\\n' ) !== false ) {
+                $json_data = stripslashes( $json_data );
+            }
+            $ingredients = json_decode( $json_data, true );
+        } elseif ( ! empty( $_POST['ingredients'] ) ) {
+            $ingredients = $_POST['ingredients'];
+        }
+        
+        if ( ! empty( $ingredients ) ) {
             $data['ingredients'] = array_map( function( $ing ) {
                 return array(
                     'name'               => sanitize_text_field( $ing['name'] ),
@@ -47,8 +61,9 @@ class RallyShopper_AJAX {
                     'kroger_description' => isset( $ing['kroger_description'] ) ? sanitize_text_field( $ing['kroger_description'] ) : null,
                     'kroger_image_url'   => isset( $ing['kroger_image_url'] ) ? esc_url_raw( $ing['kroger_image_url'] ) : null,
                     'kroger_price'       => isset( $ing['kroger_price'] ) ? floatval( $ing['kroger_price'] ) : null,
+                    'is_staple'          => isset( $ing['is_staple'] ) ? intval( $ing['is_staple'] ) : 0,
                 );
-            }, $_POST['ingredients'] );
+            }, $ingredients );
         }
         
         $result = RallyShopper_Recipe::save_recipe( $data );
@@ -60,6 +75,7 @@ class RallyShopper_AJAX {
         wp_send_json_success( array(
             'post_id' => $result,
             'message' => 'Recipe saved successfully!',
+            'debug' => isset( $data['ingredients'] ) ? json_encode( $data['ingredients'] ) : 'No ingredients',
         ) );
     }
     
@@ -91,39 +107,88 @@ class RallyShopper_AJAX {
             wp_send_json_error( 'Search query required' );
         }
         
-        $kroger = new RallyShopper_Kroger_API();
-        
-        if ( ! $kroger->is_authenticated() ) {
-            wp_send_json_error( 'Kroger not authenticated' );
-        }
-        
-        $results = $kroger->search_products( $query, 10 );
-        
-        if ( is_wp_error( $results ) ) {
-            error_log( 'Kroger search error: ' . $results->get_error_message() );
-            wp_send_json_error( $results->get_error_message() );
-        }
-        
-        error_log( 'Kroger search results: ' . json_encode( $results ) );
-        
-        $products = isset( $results['data'] ) ? $results['data'] : array();
+        try {
+            $kroger = new RallyShopper_Kroger_API();
+            
+            if ( ! $kroger->is_authenticated() ) {
+                wp_send_json_error( 'Kroger not authenticated' );
+            }
+            
+            // Get filter parameters
+            $filters = isset( $_POST['filters'] ) ? $_POST['filters'] : array();
+            
+            $results = $kroger->search_products( $query, 10, 0, null, 'delivery', $filters );
+            
+            if ( is_wp_error( $results ) ) {
+                $db = new RallyShopper_Database();
+                $db->add_log( 'error', 'kroger_search', $results->get_error_message(), array('query' => $query) );
+                wp_send_json_error( $results->get_error_message() );
+            }
+            
+            $products = isset( $results['data'] ) ? $results['data'] : array();
         
         // Format products for response
         $formatted = array_map( function( $product ) {
+            // Get all available image sizes
+            $images = array();
+            if ( isset( $product['images'] ) && is_array( $product['images'] ) ) {
+                foreach ( $product['images'] as $image ) {
+                    if ( isset( $image['sizes'] ) && is_array( $image['sizes'] ) ) {
+                        foreach ( $image['sizes'] as $size ) {
+                            $images[$size['size']] = $size['url'];
+                        }
+                    }
+                }
+            }
+
+            // Get inventory/stock level
+            $stock_level = null;
+            $inventory = null;
+            if ( isset( $product['items'][0]['inventory'] ) ) {
+                $inventory = $product['items'][0]['inventory'];
+                $stock_level = $inventory['stockLevel'] ?? null;
+            }
+
+            // Get price info
+            $price = null;
+            $promo_price = null;
+            if ( isset( $product['items'][0]['price'] ) ) {
+                $price = $product['items'][0]['price']['regular'] ?? null;
+                $promo_price = $product['items'][0]['price']['promo'] ?? null;
+            }
+
+            // Get fulfillment availability
+            $fulfillment = array();
+            if ( isset( $product['items'][0]['fulfillment'] ) ) {
+                $fulfillment = $product['items'][0]['fulfillment'];
+            }
+
             return array(
-                'productId'   => $product['productId'],
-                'upc'         => $product['upc'],
-                'description' => $product['description'],
-                'brand'       => $product['brand'] ?? '',
-                'image'       => $product['images'][0]['sizes'][0]['url'] ?? '',
-                'price'       => $product['items'][0]['price']['regular'] ?? null,
-                'size'        => $product['items'][0]['size'] ?? '',
+                'productId'      => $product['productId'],
+                'upc'            => $product['upc'],
+                'description'    => $product['description'],
+                'brand'          => $product['brand'] ?? '',
+                'images'         => $images,
+                'image'          => $images['medium'] ?? $images['small'] ?? $images['large'] ?? $images['xlarge'] ?? $images['thumbnail'] ?? '',
+                'price'          => $price,
+                'promo_price'    => $promo_price,
+                'size'           => $product['items'][0]['size'] ?? '',
+                'stock_level'    => $stock_level,
+                'inventory'      => $inventory,
+                'fulfillment'    => $fulfillment,
+                'sold_by'        => $product['items'][0]['soldBy'] ?? '',
+                'aisle_location' => $product['items'][0]['aisleLocation'] ?? '',
             );
         }, $products );
         
-        wp_send_json_success( $formatted );
+            wp_send_json_success( $formatted );
+        } catch ( Exception $e ) {
+            $db = new RallyShopper_Database();
+            $db->add_log( 'error', 'kroger_search_exception', $e->getMessage(), array('query' => $query, 'trace' => $e->getTraceAsString()) );
+            wp_send_json_error( 'Search failed: ' . $e->getMessage() );
+        }
     }
-    
+
     // Link ingredient to Kroger product
     public function ajax_link_ingredient() {
         check_ajax_referer( 'rallyshopper_nonce', 'nonce' );
@@ -190,45 +255,78 @@ class RallyShopper_AJAX {
         
         // Get recipe ingredients
         $db = new RallyShopper_Database();
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_recipes';
+        
+        // Debug logging
+        $db->add_log( 'debug', 'add_to_cart', 'Looking for recipe ' . $recipe_id . ' in table ' . $table );
+        
         $recipe_data = $db->get_recipe( $recipe_id );
         
         if ( ! $recipe_data ) {
+            $db->add_log( 'error', 'add_to_cart', 'Recipe not found: ' . $recipe_id . ' (table: ' . $table . ')' );
             wp_send_json_error( 'Recipe not found' );
         }
-        
-        $ingredients = $db->get_ingredients( $recipe_data->id );
         
         // Build cart items
         $items = array();
         $errors = array();
         $added = array();
         
-        foreach ( $ingredients as $ingredient ) {
-            if ( ! $ingredient->kroger_product_id ) {
-                $errors[] = $ingredient->name . ' - No Kroger product linked';
-                continue;
+        // Check if items were provided (for staples flow)
+        if ( ! empty( $_POST['items'] ) && is_array( $_POST['items'] ) ) {
+            // Use provided items (staples flow)
+            foreach ( $_POST['items'] as $item ) {
+                if ( ! empty( $item['upc'] ) ) {
+                    $items[] = array(
+                        'productId' => sanitize_text_field( $item['upc'] ),
+                        'quantity'  => intval( $item['quantity'] ?? 1 ),
+                    );
+                    $added[] = array(
+                        'name'     => sanitize_text_field( $item['name'] ?? 'Item' ),
+                        'quantity' => intval( $item['quantity'] ?? 1 ),
+                    );
+                }
             }
+        } else {
+            // Look up all ingredients from database (normal flow)
+            $ingredients = $db->get_ingredients( $recipe_data->id );
             
-            $quantity = $this->parse_quantity( $ingredient->amount );
-            
-            $items[] = array(
-                'productId' => $ingredient->kroger_product_id,
-                'quantity'  => $quantity,
-            );
-            
-            $added[] = array(
-                'name'     => $ingredient->name,
-                'quantity' => $quantity,
-            );
-            
-            // Record purchase intent
-            $db->record_purchase( array(
-                'ingredient_id'     => $ingredient->id,
-                'kroger_product_id' => $ingredient->kroger_product_id,
-                'kroger_upc'        => $ingredient->kroger_upc,
-                'quantity'          => $quantity,
-                'price_paid'        => $ingredient->kroger_price ?? 0,
-            ) );
+            foreach ( $ingredients as $ingredient ) {
+                if ( ! $ingredient->kroger_product_id ) {
+                    $errors[] = $ingredient->name . ' - No Kroger product linked';
+                    continue;
+                }
+                
+                // Staples: always quantity 1 (just add the product)
+                // Regular ingredients: parse quantity from amount
+                if ( $ingredient->is_staple ) {
+                    $quantity = 1;
+                } else {
+                    $quantity = $this->parse_quantity( $ingredient->amount );
+                }
+                
+                $db->add_log( 'debug', 'add_to_cart', 'Ingredient: ' . $ingredient->name . ' amount=' . $ingredient->amount . ' qty=' . $quantity . ' staple=' . $ingredient->is_staple );
+                
+                $items[] = array(
+                    'productId' => $ingredient->kroger_product_id,
+                    'quantity'  => $quantity,
+                );
+                
+                $added[] = array(
+                    'name'     => $ingredient->name,
+                    'quantity' => $quantity,
+                );
+                
+                // Record purchase intent
+                $db->record_purchase( array(
+                    'ingredient_id'     => $ingredient->id,
+                    'kroger_product_id' => $ingredient->kroger_product_id,
+                    'kroger_upc'        => $ingredient->kroger_upc,
+                    'quantity'          => $quantity,
+                    'price_paid'        => $ingredient->kroger_price ?? 0,
+                ) );
+            }
         }
         
         if ( empty( $items ) ) {
@@ -305,5 +403,45 @@ class RallyShopper_AJAX {
         }
         
         return 1;
+    }
+
+    // Find nearby Kroger stores
+    public function ajax_find_stores() {
+        check_ajax_referer( 'rallyshopper_nonce', 'nonce' );
+        
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( 'Unauthorized' );
+        }
+        
+        $zip = sanitize_text_field( $_POST['zip'] );
+        
+        if ( empty( $zip ) ) {
+            wp_send_json_error( 'Zip code required' );
+        }
+        
+        $kroger = new RallyShopper_Kroger_API();
+        
+        if ( ! $kroger->is_authenticated() ) {
+            wp_send_json_error( 'Kroger not authenticated' );
+        }
+        
+        $results = $kroger->get_locations( $zip, 25 );
+        
+        if ( is_wp_error( $results ) ) {
+            wp_send_json_error( $results->get_error_message() );
+        }
+        
+        $locations = isset( $results['data'] ) ? $results['data'] : array();
+        
+        // Format for response
+        $formatted = array_map( function( $location ) {
+            return array(
+                'locationId' => $location['locationId'],
+                'name'       => $location['name'],
+                'address'    => $location['address'],
+            );
+        }, $locations );
+        
+        wp_send_json_success( $formatted );
     }
 }

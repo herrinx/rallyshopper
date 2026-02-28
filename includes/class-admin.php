@@ -46,8 +46,8 @@ class RallyShopper_Admin {
     public function add_menu_pages() {
         // Main menu (Recipes list)
         add_menu_page(
-            'Herrecipes',
-            'Herrecipes',
+            'RallyShopper',
+            'RallyShopper',
             'manage_options',
             'rallyshopper_recipes',
             array( $this, 'render_recipes_list' ),
@@ -119,7 +119,7 @@ class RallyShopper_Admin {
     // Render recipes list
     public function render_recipes_list() {
         $recipes = RallyShopper_Recipe::get_recipes();
-        include HERRECIPES_PLUGIN_DIR . 'templates/recipe-list.php';
+        include RALLYSHOPPER_PLUGIN_DIR . 'templates/recipe-list.php';
     }
     
     // Render add/edit recipe
@@ -136,7 +136,7 @@ class RallyShopper_Admin {
         $kroger = new RallyShopper_Kroger_API();
         $kroger_connected = $kroger->is_authenticated();
         
-        include HERRECIPES_PLUGIN_DIR . 'templates/recipe-edit.php';
+        include RALLYSHOPPER_PLUGIN_DIR . 'templates/recipe-edit.php';
     }
     
     // Render Kroger auth page
@@ -178,9 +178,12 @@ class RallyShopper_Admin {
         $profile = null;
         if ( $authenticated ) {
             $profile = $kroger->get_profile();
+            if ( is_wp_error( $profile ) ) {
+                $profile = null;
+            }
         }
         
-        include HERRECIPES_PLUGIN_DIR . 'templates/kroger-auth.php';
+        include RALLYSHOPPER_PLUGIN_DIR . 'templates/kroger-auth.php';
     }
     
     // Render purchases page
@@ -188,7 +191,7 @@ class RallyShopper_Admin {
         $db = new RallyShopper_Database();
         $purchases = $db->get_purchases( null, 100 );
         
-        include HERRECIPES_PLUGIN_DIR . 'templates/purchases.php';
+        include RALLYSHOPPER_PLUGIN_DIR . 'templates/purchases.php';
     }
     
     // Render staples page
@@ -196,7 +199,7 @@ class RallyShopper_Admin {
         $db = new RallyShopper_Database();
         $staples = $db->get_staples( 2 ); // Show items with 2+ purchases
         
-        include HERRECIPES_PLUGIN_DIR . 'templates/staples.php';
+        include RALLYSHOPPER_PLUGIN_DIR . 'templates/staples.php';
     }
     
     // Render settings page
@@ -206,6 +209,8 @@ class RallyShopper_Admin {
             update_option( 'rallyshopper_kroger_client_id', sanitize_text_field( $_POST['kroger_client_id'] ) );
             update_option( 'rallyshopper_kroger_client_secret', sanitize_text_field( $_POST['kroger_client_secret'] ) );
             update_option( 'rallyshopper_default_servings', intval( $_POST['default_servings'] ) );
+            update_option( 'rallyshopper_kroger_location_id', sanitize_text_field( $_POST['kroger_location_id'] ) );
+            update_option( 'rallyshopper_kroger_zip', sanitize_text_field( $_POST['kroger_zip_code'] ) );
             
             echo '<div class="notice notice-success"><p>Settings saved!</p></div>';
         }
@@ -214,7 +219,7 @@ class RallyShopper_Admin {
         $client_secret = get_option( 'rallyshopper_kroger_client_secret' );
         $default_servings = get_option( 'rallyshopper_default_servings', 4 );
         
-        include HERRECIPES_PLUGIN_DIR . 'templates/settings.php';
+        include RALLYSHOPPER_PLUGIN_DIR . 'templates/settings.php';
     }
     
     // Add meta boxes to recipe post type
@@ -429,6 +434,13 @@ class RallyShopper_Admin {
         
         $recipe_id = $db->save_recipe( $data );
         
+        // Log the recipe save result
+        $db->add_log( 'debug', 'save_recipe_debug', 'Recipe save result: ID=' . $recipe_id . ', Data: ' . json_encode($data) . ', Existing: ' . ($existing ? 'yes' : 'no'), array(
+            'post_id' => $post_id,
+            'recipe_id' => $recipe_id,
+            'data' => $data,
+        ));
+        
         // Save ingredients from post editor
         if ( isset( $_POST['rallyshopper_ingredients'] ) && is_array( $_POST['rallyshopper_ingredients'] ) ) {
             // Delete existing ingredients
@@ -445,9 +457,17 @@ class RallyShopper_Admin {
                     'kroger_description'  => isset( $ing['kroger_description'] ) ? sanitize_text_field( $ing['kroger_description'] ) : null,
                     'kroger_image_url'    => isset( $ing['kroger_image_url'] ) ? esc_url_raw( $ing['kroger_image_url'] ) : null,
                     'kroger_price'        => isset( $ing['kroger_price'] ) ? floatval( $ing['kroger_price'] ) : null,
+                    'is_staple'           => isset( $ing['is_staple'] ) ? intval( $ing['is_staple'] ) : 0,
                     'sort_order'          => $index,
                 ) );
             }
+            
+            // Log successful save
+            RallyShopper::log( 'Saved ' . count( $_POST['rallyshopper_ingredients'] ) . ' ingredients for recipe ' . $recipe_id, 'debug' );
+        } elseif ( isset( $_POST['rallyshopper_ingredients_empty'] ) ) {
+            // CRITICAL FIX: All ingredients were deleted - clear them from DB
+            $db->delete_recipe_ingredients( $recipe_id );
+            RallyShopper::log( 'All ingredients deleted for recipe ' . $recipe_id, 'debug' );
         }
     }
     
@@ -459,6 +479,12 @@ class RallyShopper_Admin {
         if ( isset( $_POST['clear_logs'] ) && check_admin_referer( 'rallyshopper_clear_logs' ) ) {
             $db->clear_logs();
             echo '<div class="notice notice-success"><p>Logs cleared.</p></div>';
+        }
+        
+        // Handle create tables
+        if ( isset( $_POST['create_tables'] ) && check_admin_referer( 'rallyshopper_create_tables' ) ) {
+            $db->install();
+            echo '<div class="notice notice-success"><p>Tables created/updated.</p></div>';
         }
         
         // Get filter params
@@ -478,6 +504,6 @@ class RallyShopper_Admin {
         $logs_table = $wpdb->prefix . 'rallyshopper_logs';
         $actions = $wpdb->get_col( "SELECT DISTINCT action FROM {$logs_table} ORDER BY action ASC" );
         
-        include HERRECIPES_PLUGIN_DIR . 'templates/logs.php';
+        include RALLYSHOPPER_PLUGIN_DIR . 'templates/logs.php';
     }
 }

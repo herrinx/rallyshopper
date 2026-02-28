@@ -42,6 +42,12 @@ $db = new RallyShopper_Database();
         <button type="submit" name="clear_logs" class="button button-secondary" onclick="return confirm('Clear all logs?');">Clear All Logs</button>
     </form>
     
+    <!-- Create Tables Form -->
+    <form method="post" style="margin: 20px 0; display: inline-block; margin-left: 10px;">
+        <?php wp_nonce_field( 'rallyshopper_create_tables' ); ?>
+        <button type="submit" name="create_tables" class="button button-secondary">Create/Repair Tables</button>
+    </form>
+    
     <!-- Stats -->
     <div class="rallyshopper-stats" style="margin-bottom: 20px;">
         <span class="stat">Total: <strong><?php echo number_format( $total ); ?></strong></span>
@@ -59,11 +65,11 @@ $db = new RallyShopper_Database();
         <table class="wp-list-table widefat fixed striped">
             <thead>
                 <tr>
-                    <th style="width: 80px;">Level</th>
-                    <th style="width: 150px;">Time</th>
-                    <th style="width: 120px;">Action</th>
+                    <th>Level</th>
+                    <th>Time</th>
+                    <th>Action</th>
                     <th>Message</th>
-                    <th style="width: 60px;">Details</th>
+                    <th>Details</th>
                 </tr>
             </thead>
             <tbody>

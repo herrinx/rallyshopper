@@ -363,9 +363,9 @@
 
 .kroger-search-modal .modal-content {
     background: #fff;
-    width: 90%;
-    max-width: 800px;
-    max-height: 90vh;
+    width: 95%;
+    max-width: 1200px;
+    max-height: 85vh;
     border-radius: 4px;
     overflow: hidden;
     display: flex;
@@ -407,9 +407,7 @@
 }
 
 .kroger-search-modal .search-results {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 15px;
+    /* Layout handled by JavaScript */
 }
 
 .kroger-search-modal .product-card {
@@ -446,6 +444,48 @@
     font-weight: 600;
     color: #2271b1;
     margin-top: 5px;
+}
+
+.kroger-search-modal .product-card .product-size {
+    font-size: 11px;
+    color: #646970;
+    margin-top: 3px;
+}
+
+.kroger-search-modal .product-card .product-meta {
+    font-size: 11px;
+    margin-top: 5px;
+}
+
+/* Product Filters */
+.product-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.product-filters label {
+    font-weight: 600;
+    margin-right: 5px;
+}
+
+.product-filters input[type="text"] {
+    width: 200px;
+}
+
+.product-filters select {
+    width: 150px;
+}
+
+.product-filters input[type="checkbox"] {
+    margin-right: 5px;
+}
+
+.no-results {
+    padding: 20px;
+    text-align: center;
+    color: #646970;
 }
 
 /* Auth Status */
