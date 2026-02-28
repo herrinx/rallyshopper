@@ -57,15 +57,6 @@ class RallyShopper_Shortcodes {
             
             <!-- Recipe List View -->
             <div id="rs-view-list" class="view active">
-                <!-- Hero Section -->
-                <div class="rs-hero">
-                    <div class="rs-hero-content">
-                        <h2>Plan. Shop. Cook.</h2>
-                        <p>Transform your meal planning into a seamless culinary journey</p>
-                        <button class="button button-primary" id="rs-hero-new-recipe">Create Your First Recipe</button>
-                    </div>
-                </div>
-                
                 <!-- Search Section -->
                 <div class="rs-search-section">
                     <div class="rs-search-bar">

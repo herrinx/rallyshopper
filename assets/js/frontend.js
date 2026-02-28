@@ -70,11 +70,6 @@
             showView('meal-plan');
         });
 
-        // Hero new recipe button
-        $(document).on('click', '#rs-hero-new-recipe', function() {
-            $('#rs-btn-new').trigger('click');
-        });
-
         // Back from meal plan
         $(document).on('click', '#rs-btn-back-from-plan', function() {
             showView('list');
