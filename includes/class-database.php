@@ -97,6 +97,58 @@ class RallyShopper_Database {
                 KEY action (action),
                 KEY created_at (created_at)
             ) {$charset_collate};
+
+            CREATE TABLE {$wpdb->prefix}rallyshopper_categories (
+                id bigint(20) NOT NULL AUTO_INCREMENT,
+                name varchar(255) NOT NULL,
+                slug varchar(255) NOT NULL,
+                description text DEFAULT NULL,
+                color varchar(7) DEFAULT '#0073aa',
+                sort_order int(11) DEFAULT 0,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                UNIQUE KEY slug (slug),
+                KEY sort_order (sort_order)
+            ) {$charset_collate};
+
+            CREATE TABLE {$wpdb->prefix}rallyshopper_recipe_categories (
+                id bigint(20) NOT NULL AUTO_INCREMENT,
+                recipe_id bigint(20) NOT NULL,
+                category_id bigint(20) NOT NULL,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                UNIQUE KEY recipe_category (recipe_id, category_id),
+                KEY recipe_id (recipe_id),
+                KEY category_id (category_id)
+            ) {$charset_collate};
+
+            CREATE TABLE {$wpdb->prefix}rallyshopper_meal_plans (
+                id bigint(20) NOT NULL AUTO_INCREMENT,
+                name varchar(255) NOT NULL,
+                week_start date DEFAULT NULL,
+                is_active tinyint(1) DEFAULT 1,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY week_start (week_start),
+                KEY is_active (is_active)
+            ) {$charset_collate};
+
+            CREATE TABLE {$wpdb->prefix}rallyshopper_meal_plan_recipes (
+                id bigint(20) NOT NULL AUTO_INCREMENT,
+                plan_id bigint(20) NOT NULL,
+                recipe_id bigint(20) NOT NULL,
+                day_of_week varchar(10) DEFAULT NULL,
+                meal_type varchar(20) DEFAULT NULL,
+                notes text DEFAULT NULL,
+                sort_order int(11) DEFAULT 0,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY plan_id (plan_id),
+                KEY recipe_id (recipe_id),
+                KEY day_of_week (day_of_week)
+            ) {$charset_collate};
         ";
         
         require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
@@ -325,5 +377,156 @@ class RallyShopper_Database {
             $where_clause = implode( ' AND ', $where );
             $wpdb->query( "DELETE FROM {$table} WHERE {$where_clause}" );
         }
+    }
+
+    // Category methods
+    public function get_categories() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_categories';
+        return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY sort_order ASC, name ASC" );
+    }
+
+    public function get_category( $id ) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_categories';
+        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ) );
+    }
+
+    public function save_category( $data ) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_categories';
+
+        if ( empty( $data['slug'] ) && ! empty( $data['name'] ) ) {
+            $data['slug'] = sanitize_title( $data['name'] );
+        }
+
+        if ( isset( $data['id'] ) ) {
+            $wpdb->update( $table, $data, array( 'id' => $data['id'] ) );
+            return $data['id'];
+        } else {
+            $wpdb->insert( $table, $data );
+            return $wpdb->insert_id;
+        }
+    }
+
+    public function delete_category( $id ) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_categories';
+        $wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) );
+
+        // Also delete recipe associations
+        $wpdb->delete( $wpdb->prefix . 'rallyshopper_recipe_categories', array( 'category_id' => $id ), array( '%d' ) );
+    }
+
+    public function get_recipe_categories( $recipe_id ) {
+        global $wpdb;
+        return $wpdb->get_results( $wpdb->prepare(
+            "SELECT c.* FROM {$wpdb->prefix}rallyshopper_categories c
+             JOIN {$wpdb->prefix}rallyshopper_recipe_categories rc ON c.id = rc.category_id
+             WHERE rc.recipe_id = %d
+             ORDER BY c.sort_order ASC, c.name ASC",
+            $recipe_id
+        ) );
+    }
+
+    public function set_recipe_categories( $recipe_id, $category_ids ) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_recipe_categories';
+
+        // Remove existing
+        $wpdb->delete( $table, array( 'recipe_id' => $recipe_id ), array( '%d' ) );
+
+        // Add new
+        foreach ( $category_ids as $category_id ) {
+            $wpdb->insert( $table, array(
+                'recipe_id' => $recipe_id,
+                'category_id' => intval( $category_id ),
+            ) );
+        }
+    }
+
+    // Meal Plan methods
+    public function get_meal_plans( $active_only = true ) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_meal_plans';
+        $sql = "SELECT * FROM {$table}";
+        if ( $active_only ) {
+            $sql .= " WHERE is_active = 1";
+        }
+        $sql .= " ORDER BY week_start DESC, created_at DESC";
+        return $wpdb->get_results( $sql );
+    }
+
+    public function get_meal_plan( $id ) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_meal_plans';
+        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ) );
+    }
+
+    public function get_active_meal_plan() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_meal_plans';
+        return $wpdb->get_row( "SELECT * FROM {$table} WHERE is_active = 1 ORDER BY week_start DESC, created_at DESC LIMIT 1" );
+    }
+
+    public function save_meal_plan( $data ) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_meal_plans';
+
+        if ( isset( $data['id'] ) ) {
+            $wpdb->update( $table, $data, array( 'id' => $data['id'] ) );
+            return $data['id'];
+        } else {
+            $wpdb->insert( $table, $data );
+            return $wpdb->insert_id;
+        }
+    }
+
+    public function delete_meal_plan( $id ) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_meal_plans';
+        $wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) );
+
+        // Also delete recipe associations
+        $wpdb->delete( $wpdb->prefix . 'rallyshopper_meal_plan_recipes', array( 'plan_id' => $id ), array( '%d' ) );
+    }
+
+    public function get_meal_plan_recipes( $plan_id ) {
+        global $wpdb;
+        return $wpdb->get_results( $wpdb->prepare(
+            "SELECT mpr.*, p.post_title as recipe_title, p.ID as recipe_post_id
+             FROM {$wpdb->prefix}rallyshopper_meal_plan_recipes mpr
+             JOIN {$wpdb->posts} p ON mpr.recipe_id = p.ID
+             WHERE mpr.plan_id = %d
+             ORDER BY mpr.day_of_week ASC, mpr.sort_order ASC",
+            $plan_id
+        ) );
+    }
+
+    public function add_recipe_to_meal_plan( $plan_id, $recipe_id, $day_of_week = null, $meal_type = null, $notes = '' ) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_meal_plan_recipes';
+
+        $wpdb->insert( $table, array(
+            'plan_id' => $plan_id,
+            'recipe_id' => $recipe_id,
+            'day_of_week' => $day_of_week,
+            'meal_type' => $meal_type,
+            'notes' => $notes,
+        ) );
+
+        return $wpdb->insert_id;
+    }
+
+    public function remove_recipe_from_meal_plan( $plan_id, $recipe_id ) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_meal_plan_recipes';
+        $wpdb->delete( $table, array( 'plan_id' => $plan_id, 'recipe_id' => $recipe_id ), array( '%d', '%d' ) );
+    }
+
+    public function update_meal_plan_recipe( $id, $data ) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'rallyshopper_meal_plan_recipes';
+        $wpdb->update( $table, $data, array( 'id' => $id ) );
     }
 }

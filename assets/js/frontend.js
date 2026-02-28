@@ -15,6 +15,87 @@
     // Initialize when DOM is ready
     $(function() {
         console.log('RallyShopper DOM ready');
+        
+        // Load categories on init
+        loadCategories();
+        
+        // Load meal plans on init
+        loadMealPlans();
+        
+        // Live search with debounce
+        let searchTimeout;
+        $(document).on('input', '#rs-live-search', function() {
+            const query = $(this).val().trim();
+            clearTimeout(searchTimeout);
+            
+            if (query.length === 0) {
+                // Show all recipes
+                $('.recipe-card').show();
+                $('.rs-search-results-info').remove();
+                return;
+            }
+            
+            searchTimeout = setTimeout(function() {
+                performLiveSearch(query);
+            }, 300); // 300ms debounce
+        });
+        
+        // Category filter
+        $(document).on('change', '#rs-category-filter', function() {
+            filterByCategory($(this).val());
+        });
+        
+        // Manage categories button
+        $(document).on('click', '#rs-btn-manage-categories', function() {
+            $('#rs-modal-categories').addClass('active');
+            loadCategoryList();
+        });
+        
+        // Save category
+        $(document).on('click', '#rs-btn-save-category', function() {
+            saveCategory();
+        });
+        
+        // Meal plan button
+        $(document).on('click', '#rs-btn-meal-plan', function() {
+            showView('meal-plan');
+        });
+        
+        // Back from meal plan
+        $(document).on('click', '#rs-btn-back-from-plan', function() {
+            showView('list');
+        });
+        
+        // New meal plan
+        $(document).on('click', '#rs-btn-new-plan', function() {
+            const name = prompt('Enter plan name (e.g., "Week of March 1"):');
+            if (name) {
+                createMealPlan(name);
+            }
+        });
+        
+        // Meal plan selector
+        $(document).on('change', '#rs-meal-plan-selector', function() {
+            loadMealPlanRecipes($(this).val());
+        });
+        
+        // Modal close buttons
+        $(document).on('click', '.rs-modal-close', function() {
+            const modalId = $(this).data('modal');
+            $('#' + modalId).removeClass('active');
+        });
+        
+        // Close modal on background click
+        $(document).on('click', '.rs-modal', function(e) {
+            if ($(e.target).hasClass('rs-modal')) {
+                $(this).removeClass('active');
+            }
+        });
+        
+        // Add to meal plan confirmation
+        $(document).on('click', '#rs-btn-confirm-add-to-plan', function() {
+            confirmAddToMealPlan();
+        });
     });
     
     // Add to Cart - delegated handler
@@ -521,6 +602,39 @@
         $(this).hide();
     });
     
+    // Live search function
+    function performLiveSearch(query) {
+        $.post(rallyshopper_ajax.ajax_url, {
+            action: 'rallyshopper_search_recipes_live',
+            nonce: rallyshopper_ajax.nonce,
+            query: query
+        }, function(res) {
+            if (!res.success) {
+                toast('Search failed', 'error');
+                return;
+            }
+            
+            const results = res.data.results;
+            const allRecipeIds = res.data.all_ids || [];
+            
+            // Hide all first
+            $('.recipe-card').hide();
+            
+            // Show matching recipes
+            results.forEach(function(r) {
+                $('.recipe-card[data-id="' + r.id + '"]').show();
+            });
+            
+            // Show results info
+            $('.rs-search-results-info').remove();
+            const info = results.length + ' of ' + allRecipeIds.length + ' recipes match "' + query + '"';
+            $('#rs-recipe-grid').before('<div class="rs-search-results-info">' + info + '</div>');
+            
+        }).fail(function() {
+            toast('Search failed', 'error');
+        });
+    }
+    
     // Toast
     function toast(msg, type) {
         type = type || 'success';
@@ -528,6 +642,249 @@
         $('#rs-toasts').append($t);
         setTimeout(() => $t.fadeOut(() => $t.remove()), 3000);
     }
+
+    // Category Functions
+    function loadCategories() {
+        $.post(rallyshopper_ajax.ajax_url, {
+            action: 'rallyshopper_get_categories',
+            nonce: rallyshopper_ajax.nonce
+        }, function(res) {
+            if (res.success) {
+                const categories = res.data;
+                // Populate filter dropdown
+                const $filter = $('#rs-category-filter');
+                $filter.html('<option value="">All Categories</option>');
+                categories.forEach(function(cat) {
+                    $filter.append('<option value="' + cat.id + '">' + cat.name + '</option>');
+                });
+                
+                // Populate category selector in editor
+                const $selector = $('#rs-categories');
+                $selector.empty();
+                categories.forEach(function(cat) {
+                    $selector.append(
+                        '<label class="rs-category-checkbox" data-id="' + cat.id + '">' +
+                        '<input type="checkbox" value="' + cat.id + '"> ' +
+                        '<span>' + cat.name + '</span>' +
+                        '</label>'
+                    );
+                });
+            }
+        });
+    }
+
+    function loadCategoryList() {
+        $.post(rallyshopper_ajax.ajax_url, {
+            action: 'rallyshopper_get_categories',
+            nonce: rallyshopper_ajax.nonce
+        }, function(res) {
+            if (res.success) {
+                const categories = res.data;
+                const $list = $('#rs-category-list');
+                $list.empty();
+                categories.forEach(function(cat) {
+                    $list.append(
+                        '<div class="category-item" style="border-color:' + cat.color + '">' +
+                        '<span class="category-item-name">' + cat.name + '</span>' +
+                        '<div class="category-item-actions">' +
+                        '<button class="button" onclick="editCategory(' + cat.id + ', \'' + cat.name + '\', \'' + cat.color + '\')">Edit</button>' +
+                        '<button class="button" onclick="deleteCategory(' + cat.id + ')">Delete</button>' +
+                        '</div>' +
+                        '</div>'
+                    );
+                });
+            }
+        });
+    }
+
+    function saveCategory() {
+        const id = $('#rs-category-id').val();
+        const name = $('#rs-category-name').val();
+        const color = $('#rs-category-color').val();
+        
+        if (!name) {
+            toast('Please enter a category name', 'error');
+            return;
+        }
+        
+        $.post(rallyshopper_ajax.ajax_url, {
+            action: 'rallyshopper_save_category',
+            nonce: rallyshopper_ajax.nonce,
+            id: id,
+            name: name,
+            color: color
+        }, function(res) {
+            if (res.success) {
+                toast('Category saved');
+                $('#rs-category-id').val('');
+                $('#rs-category-name').val('');
+                $('#rs-category-color').val('#0073aa');
+                loadCategoryList();
+                loadCategories();
+            } else {
+                toast('Failed to save category', 'error');
+            }
+        });
+    }
+
+    window.editCategory = function(id, name, color) {
+        $('#rs-category-id').val(id);
+        $('#rs-category-name').val(name);
+        $('#rs-category-color').val(color);
+    };
+
+    window.deleteCategory = function(id) {
+        if (!confirm('Delete this category? Recipes will keep their other categories.')) return;
+        
+        $.post(rallyshopper_ajax.ajax_url, {
+            action: 'rallyshopper_delete_category',
+            nonce: rallyshopper_ajax.nonce,
+            id: id
+        }, function(res) {
+            if (res.success) {
+                toast('Category deleted');
+                loadCategoryList();
+                loadCategories();
+            } else {
+                toast('Failed to delete category', 'error');
+            }
+        });
+    };
+
+    function filterByCategory(categoryId) {
+        if (!categoryId) {
+            $('.recipe-card').show();
+            return;
+        }
+        
+        // Hide all first
+        $('.recipe-card').hide();
+        
+        // Show recipes in category (would need backend support)
+        // For now, just show all
+        $('.recipe-card').show();
+        toast('Category filter: ' + categoryId);
+    }
+
+    // Meal Plan Functions
+    function loadMealPlans() {
+        $.post(rallyshopper_ajax.ajax_url, {
+            action: 'rallyshopper_get_meal_plans',
+            nonce: rallyshopper_ajax.nonce
+        }, function(res) {
+            if (res.success) {
+                const plans = res.data;
+                const $selector = $('#rs-meal-plan-selector, #rs-add-plan-selector');
+                $selector.html('<option value="">Select Plan...</option>');
+                plans.forEach(function(plan) {
+                    $selector.append('<option value="' + plan.id + '">' + plan.name + '</option>');
+                });
+            }
+        });
+    }
+
+    function createMealPlan(name) {
+        $.post(rallyshopper_ajax.ajax_url, {
+            action: 'rallyshopper_save_meal_plan',
+            nonce: rallyshopper_ajax.nonce,
+            name: name
+        }, function(res) {
+            if (res.success) {
+                toast('Meal plan created');
+                loadMealPlans();
+                $('#rs-meal-plan-selector').val(res.data.id).trigger('change');
+            } else {
+                toast('Failed to create meal plan', 'error');
+            }
+        });
+    }
+
+    function loadMealPlanRecipes(planId) {
+        if (!planId) {
+            $('.meal-recipes').empty();
+            return;
+        }
+        
+        $.post(rallyshopper_ajax.ajax_url, {
+            action: 'rallyshopper_get_meal_plan_recipes',
+            nonce: rallyshopper_ajax.nonce,
+            plan_id: planId
+        }, function(res) {
+            if (res.success) {
+                const recipes = res.data;
+                // Clear all slots
+                $('.meal-recipes').empty();
+                
+                // Populate slots
+                recipes.forEach(function(item) {
+                    const selector = '.meal-day[data-day="' + item.day_of_week + '"] .meal-slot[data-meal="' + item.meal_type + '"]';
+                    const $slot = $(selector + ' .meal-recipes');
+                    $slot.append(
+                        '<div class="meal-recipe-item" data-id="' + item.id + '">' +
+                        '<span>' + item.recipe_title + '</span>' +
+                        '<button onclick="removeFromMealPlan(' + item.plan_id + ', ' + item.recipe_id + ')">&times;</button>' +
+                        '</div>'
+                    );
+                });
+            }
+        });
+    }
+
+    window.addToMealPlan = function(recipeId, recipeTitle) {
+        $('#rs-add-plan-recipe-id').val(recipeId);
+        $('#rs-modal-add-to-plan').addClass('active');
+    };
+
+    function confirmAddToMealPlan() {
+        const planId = $('#rs-add-plan-selector').val();
+        const recipeId = $('#rs-add-plan-recipe-id').val();
+        const day = $('#rs-add-plan-day').val();
+        const meal = $('#rs-add-plan-meal').val();
+        
+        if (!planId) {
+            toast('Please select a meal plan', 'error');
+            return;
+        }
+        
+        $.post(rallyshopper_ajax.ajax_url, {
+            action: 'rallyshopper_add_to_meal_plan',
+            nonce: rallyshopper_ajax.nonce,
+            plan_id: planId,
+            recipe_id: recipeId,
+            day_of_week: day,
+            meal_type: meal
+        }, function(res) {
+            if (res.success) {
+                toast('Recipe added to meal plan');
+                $('#rs-modal-add-to-plan').removeClass('active');
+                
+                // If this plan is currently selected, refresh it
+                if ($('#rs-meal-plan-selector').val() === planId) {
+                    loadMealPlanRecipes(planId);
+                }
+            } else {
+                toast('Failed to add to meal plan', 'error');
+            }
+        });
+    }
+
+    window.removeFromMealPlan = function(planId, recipeId) {
+        if (!confirm('Remove this recipe from the meal plan?')) return;
+        
+        $.post(rallyshopper_ajax.ajax_url, {
+            action: 'rallyshopper_remove_from_meal_plan',
+            nonce: rallyshopper_ajax.nonce,
+            plan_id: planId,
+            recipe_id: recipeId
+        }, function(res) {
+            if (res.success) {
+                toast('Recipe removed from meal plan');
+                loadMealPlanRecipes(planId);
+            } else {
+                toast('Failed to remove from meal plan', 'error');
+            }
+        });
+    };
     
     console.log('RallyShopper loaded');
 })(jQuery);

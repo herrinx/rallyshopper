@@ -486,6 +486,209 @@
     }
 }
 
+/* Filters */
+.rs-filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+.rs-filters select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* Category Selector */
+.rs-category-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    min-height: 40px;
+}
+
+.rs-category-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: #f0f0f0;
+    border-radius: 12px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.rs-category-checkbox input {
+    margin: 0;
+}
+
+.rs-category-checkbox.checked {
+    background: #0073aa;
+    color: white;
+}
+
+/* Meal Plan */
+.meal-plan-container {
+    padding: 20px;
+}
+
+.meal-plan-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+}
+
+.meal-day {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 200px;
+}
+
+.meal-day h4 {
+    margin: 0 0 10px 0;
+    text-align: center;
+    color: #333;
+    font-size: 14px;
+    text-transform: uppercase;
+}
+
+.meal-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.meal-slot {
+    background: white;
+    border-radius: 4px;
+    padding: 8px;
+    min-height: 60px;
+}
+
+.meal-label {
+    font-size: 11px;
+    color: #666;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.meal-recipes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.meal-recipe-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 6px;
+    background: #e8f4f8;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.meal-recipe-item button {
+    background: none;
+    border: none;
+    color: #c00;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+}
+
+/* Category Management */
+.category-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.category-form input[type="text"] {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.category-form input[type="color"] {
+    width: 50px;
+    height: 35px;
+    border: none;
+    cursor: pointer;
+}
+
+.category-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.category-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 4px solid;
+}
+
+.category-item-name {
+    font-weight: 500;
+}
+
+.category-item-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.category-item-actions button {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+/* Recipe Card Category Tags */
+.recipe-categories {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.recipe-category-tag {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    color: white;
+}
+
+/* Modal improvements */
+.rs-modal .modal-content {
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.rs-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
 /* Staples List */
 .rs-staples-list {
     margin-top: 20px;
@@ -493,6 +696,46 @@
     background: #f8f9fa;
     border-radius: 6px;
     border: 1px solid #ddd;
+}
+
+/* Live Search */
+.rs-search-bar {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.rs-search-bar input {
+    width: 100%;
+    padding: 12px 40px 12px 15px;
+    font-size: 16px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    transition: border-color 0.2s;
+}
+
+.rs-search-bar input:focus {
+    outline: none;
+    border-color: #0073aa;
+}
+
+.rs-search-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    opacity: 0.5;
+}
+
+.rs-search-results-info {
+    padding: 10px 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.rs-highlight {
+    background: yellow;
+    font-weight: bold;
 }
 
 .rs-staples-list h4 {

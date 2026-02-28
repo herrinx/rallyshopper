@@ -13,6 +13,16 @@ class RallyShopper_AJAX {
         add_action( 'wp_ajax_rallyshopper_add_to_cart', array( $this, 'ajax_add_to_cart' ) );
         add_action( 'wp_ajax_rallyshopper_get_cart', array( $this, 'ajax_get_cart' ) );
         add_action( 'wp_ajax_rallyshopper_find_stores', array( $this, 'ajax_find_stores' ) );
+        add_action( 'wp_ajax_rallyshopper_search_recipes_live', array( $this, 'ajax_search_recipes_live' ) );
+        add_action( 'wp_ajax_rallyshopper_get_categories', array( $this, 'ajax_get_categories' ) );
+        add_action( 'wp_ajax_rallyshopper_save_category', array( $this, 'ajax_save_category' ) );
+        add_action( 'wp_ajax_rallyshopper_delete_category', array( $this, 'ajax_delete_category' ) );
+        add_action( 'wp_ajax_rallyshopper_get_meal_plans', array( $this, 'ajax_get_meal_plans' ) );
+        add_action( 'wp_ajax_rallyshopper_save_meal_plan', array( $this, 'ajax_save_meal_plan' ) );
+        add_action( 'wp_ajax_rallyshopper_delete_meal_plan', array( $this, 'ajax_delete_meal_plan' ) );
+        add_action( 'wp_ajax_rallyshopper_add_to_meal_plan', array( $this, 'ajax_add_to_meal_plan' ) );
+        add_action( 'wp_ajax_rallyshopper_remove_from_meal_plan', array( $this, 'ajax_remove_from_meal_plan' ) );
+        add_action( 'wp_ajax_rallyshopper_get_meal_plan_recipes', array( $this, 'ajax_get_meal_plan_recipes' ) );
     }
     
     // Save recipe via AJAX
@@ -397,12 +407,100 @@ class RallyShopper_AJAX {
         if ( ! $amount ) {
             return 1;
         }
-        
+
         if ( preg_match( '/^(\d+\.?\d*)/', $amount, $matches ) ) {
             return max( 1, ceil( floatval( $matches[1] ) ) );
         }
-        
+
         return 1;
+    }
+
+    // Live recipe search with Levenshtein fuzzy matching
+    public function ajax_search_recipes_live() {
+        check_ajax_referer( 'rallyshopper_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( 'Unauthorized' );
+        }
+
+        $query = strtolower( sanitize_text_field( $_POST['query'] ?? '' ) );
+
+        if ( empty( $query ) ) {
+            wp_send_json_success( array( 'results' => array(), 'all_ids' => array() ) );
+        }
+
+        $db = new RallyShopper_Database();
+        $all_recipes = RallyShopper_Recipe::get_recipes();
+        $results = array();
+        $all_ids = array();
+
+        foreach ( $all_recipes as $recipe ) {
+            $post = $recipe['post'];
+            $all_ids[] = $post->ID;
+
+            $title = strtolower( $post->post_title );
+            $content = strtolower( $post->post_content );
+            $excerpt = strtolower( $post->post_excerpt );
+
+            // Direct string match
+            if ( strpos( $title, $query ) !== false ||
+                 strpos( $content, $query ) !== false ||
+                 strpos( $excerpt, $query ) !== false ) {
+                $results[] = array(
+                    'id' => $post->ID,
+                    'title' => $post->post_title,
+                    'score' => 100,
+                );
+                continue;
+            }
+
+            // Check ingredients with Levenshtein fuzzy matching
+            $ingredient_match = false;
+            $best_score = PHP_INT_MAX;
+
+            foreach ( $recipe['ingredients'] as $ing ) {
+                $ing_name = strtolower( $ing->kroger_description ?? $ing->name ?? '' );
+
+                // Direct ingredient match
+                if ( strpos( $ing_name, $query ) !== false ) {
+                    $ingredient_match = true;
+                    $best_score = 0;
+                    break;
+                }
+
+                // Levenshtein distance for fuzzy match
+                if ( strlen( $ing_name ) > 0 && strlen( $query ) > 0 ) {
+                    $distance = levenshtein( $query, $ing_name );
+                    $max_len = max( strlen( $query ), strlen( $ing_name ) );
+                    $similarity = 100 - ( $distance / $max_len * 100 );
+
+                    if ( $similarity > 60 ) { // 60% similarity threshold
+                        $ingredient_match = true;
+                        if ( $distance < $best_score ) {
+                            $best_score = $distance;
+                        }
+                    }
+                }
+            }
+
+            if ( $ingredient_match ) {
+                $results[] = array(
+                    'id' => $post->ID,
+                    'title' => $post->post_title,
+                    'score' => $best_score,
+                );
+            }
+        }
+
+        // Sort by score (lower is better for Levenshtein)
+        usort( $results, function( $a, $b ) {
+            return $a['score'] - $b['score'];
+        } );
+
+        wp_send_json_success( array(
+            'results' => $results,
+            'all_ids' => $all_ids,
+        ) );
     }
 
     // Find nearby Kroger stores
@@ -443,5 +541,118 @@ class RallyShopper_AJAX {
         }, $locations );
         
         wp_send_json_success( $formatted );
+    }
+
+    // Category AJAX handlers
+    public function ajax_get_categories() {
+        check_ajax_referer( 'rallyshopper_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $db = new RallyShopper_Database();
+        $categories = $db->get_categories();
+        wp_send_json_success( $categories );
+    }
+
+    public function ajax_save_category() {
+        check_ajax_referer( 'rallyshopper_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $data = array(
+            'name' => sanitize_text_field( $_POST['name'] ),
+            'description' => sanitize_textarea_field( $_POST['description'] ?? '' ),
+            'color' => sanitize_text_field( $_POST['color'] ?? '#0073aa' ),
+            'sort_order' => intval( $_POST['sort_order'] ?? 0 ),
+        );
+
+        if ( ! empty( $_POST['id'] ) ) {
+            $data['id'] = intval( $_POST['id'] );
+        }
+
+        $db = new RallyShopper_Database();
+        $id = $db->save_category( $data );
+        wp_send_json_success( array( 'id' => $id ) );
+    }
+
+    public function ajax_delete_category() {
+        check_ajax_referer( 'rallyshopper_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $db = new RallyShopper_Database();
+        $db->delete_category( intval( $_POST['id'] ) );
+        wp_send_json_success();
+    }
+
+    // Meal Plan AJAX handlers
+    public function ajax_get_meal_plans() {
+        check_ajax_referer( 'rallyshopper_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $db = new RallyShopper_Database();
+        $plans = $db->get_meal_plans( false );
+        wp_send_json_success( $plans );
+    }
+
+    public function ajax_save_meal_plan() {
+        check_ajax_referer( 'rallyshopper_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $data = array(
+            'name' => sanitize_text_field( $_POST['name'] ),
+            'week_start' => sanitize_text_field( $_POST['week_start'] ?? null ),
+            'is_active' => intval( $_POST['is_active'] ?? 1 ),
+        );
+
+        if ( ! empty( $_POST['id'] ) ) {
+            $data['id'] = intval( $_POST['id'] );
+        }
+
+        $db = new RallyShopper_Database();
+        $id = $db->save_meal_plan( $data );
+        wp_send_json_success( array( 'id' => $id ) );
+    }
+
+    public function ajax_delete_meal_plan() {
+        check_ajax_referer( 'rallyshopper_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $db = new RallyShopper_Database();
+        $db->delete_meal_plan( intval( $_POST['id'] ) );
+        wp_send_json_success();
+    }
+
+    public function ajax_add_to_meal_plan() {
+        check_ajax_referer( 'rallyshopper_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $db = new RallyShopper_Database();
+        $id = $db->add_recipe_to_meal_plan(
+            intval( $_POST['plan_id'] ),
+            intval( $_POST['recipe_id'] ),
+            sanitize_text_field( $_POST['day_of_week'] ?? null ),
+            sanitize_text_field( $_POST['meal_type'] ?? null ),
+            sanitize_textarea_field( $_POST['notes'] ?? '' )
+        );
+        wp_send_json_success( array( 'id' => $id ) );
+    }
+
+    public function ajax_remove_from_meal_plan() {
+        check_ajax_referer( 'rallyshopper_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $db = new RallyShopper_Database();
+        $db->remove_recipe_from_meal_plan(
+            intval( $_POST['plan_id'] ),
+            intval( $_POST['recipe_id'] )
+        );
+        wp_send_json_success();
+    }
+
+    public function ajax_get_meal_plan_recipes() {
+        check_ajax_referer( 'rallyshopper_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
+
+        $db = new RallyShopper_Database();
+        $recipes = $db->get_meal_plan_recipes( intval( $_POST['plan_id'] ) );
+        wp_send_json_success( $recipes );
     }
 }

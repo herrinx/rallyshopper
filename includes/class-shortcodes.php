@@ -58,6 +58,17 @@ class RallyShopper_Shortcodes {
             
             <!-- Recipe List View -->
             <div id="rs-view-list" class="view active">
+                <div class="rs-search-bar">
+                    <input type="text" id="rs-live-search" placeholder="Search recipes, ingredients..." autocomplete="off">
+                    <span class="rs-search-icon">🔍</span>
+                </div>
+                <div class="rs-filters">
+                    <select id="rs-category-filter">
+                        <option value="">All Categories</option>
+                    </select>
+                    <button class="button" id="rs-btn-manage-categories">Manage Categories</button>
+                    <button class="button" id="rs-btn-meal-plan">📅 Meal Plan</button>
+                </div>
                 <div class="recipe-grid" id="rs-recipe-grid">
                     <?php foreach ( $recipes as $recipe ) : ?>
                         <div class="recipe-card" data-id="<?php echo esc_attr( $recipe['post']->ID ); ?>">
@@ -71,8 +82,10 @@ class RallyShopper_Shortcodes {
                                 <?php echo intval( count( $recipe['ingredients'] ) ); ?> ingredients · 
                                 <?php echo esc_html( RallyShopper_Recipe::format_time( $recipe['meta']['prep_time'] + $recipe['meta']['cook_time'] ) ); ?>
                             </div>
+                            <div class="recipe-categories" id="recipe-cats-<?php echo esc_attr( $recipe['post']->ID ); ?>"></div>
                             <div class="recipe-actions">
                                 <button class="button rs-btn-edit" data-id="<?php echo esc_attr( $recipe['post']->ID ); ?>">Edit</button>
+                                <button class="button" onclick="addToMealPlan(<?php echo esc_attr( $recipe['post']->ID ); ?>, '<?php echo esc_js( $recipe['post']->post_title ); ?>')">📅</button>
                                 <?php if ( $connected && ! empty( $recipe['ingredients'] ) ) : ?>
                                     <button class="button button-primary rs-btn-cart" data-id="<?php echo esc_attr( $recipe['post']->ID ); ?>">Add to Cart</button>
                                 <?php endif; ?>
@@ -131,6 +144,13 @@ class RallyShopper_Shortcodes {
                                 <option value="medium" selected>Medium</option>
                                 <option value="hard">Hard</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="form-field">
+                        <label>Categories</label>
+                        <div class="rs-category-selector" id="rs-categories">
+                            <!-- Categories loaded dynamically -->
                         </div>
                     </div>
                     
@@ -204,6 +224,137 @@ class RallyShopper_Shortcodes {
                 </div>
             </div>
             
+            <!-- Meal Plan View -->
+            <div id="rs-view-meal-plan" class="view">
+                <div class="editor-header">
+                    <button class="button" id="rs-btn-back-from-plan">&larr; Back to Recipes</button>
+                    <h2>📅 Meal Plan</h2>
+                    <select id="rs-meal-plan-selector">
+                        <option value="">Select Plan...</option>
+                    </select>
+                    <button class="button" id="rs-btn-new-plan">+ New Plan</button>
+                </div>
+                <div class="meal-plan-container" id="rs-meal-plan-container">
+                    <div class="meal-plan-days">
+                        <div class="meal-day" data-day="monday">
+                            <h4>Monday</h4>
+                            <div class="meal-slots">
+                                <div class="meal-slot" data-meal="breakfast"><span class="meal-label">Breakfast</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="lunch"><span class="meal-label">Lunch</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="dinner"><span class="meal-label">Dinner</span><div class="meal-recipes"></div></div>
+                            </div>
+                        </div>
+                        <div class="meal-day" data-day="tuesday">
+                            <h4>Tuesday</h4>
+                            <div class="meal-slots">
+                                <div class="meal-slot" data-meal="breakfast"><span class="meal-label">Breakfast</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="lunch"><span class="meal-label">Lunch</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="dinner"><span class="meal-label">Dinner</span><div class="meal-recipes"></div></div>
+                            </div>
+                        </div>
+                        <div class="meal-day" data-day="wednesday">
+                            <h4>Wednesday</h4>
+                            <div class="meal-slots">
+                                <div class="meal-slot" data-meal="breakfast"><span class="meal-label">Breakfast</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="lunch"><span class="meal-label">Lunch</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="dinner"><span class="meal-label">Dinner</span><div class="meal-recipes"></div></div>
+                            </div>
+                        </div>
+                        <div class="meal-day" data-day="thursday">
+                            <h4>Thursday</h4>
+                            <div class="meal-slots">
+                                <div class="meal-slot" data-meal="breakfast"><span class="meal-label">Breakfast</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="lunch"><span class="meal-label">Lunch</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="dinner"><span class="meal-label">Dinner</span><div class="meal-recipes"></div></div>
+                            </div>
+                        </div>
+                        <div class="meal-day" data-day="friday">
+                            <h4>Friday</h4>
+                            <div class="meal-slots">
+                                <div class="meal-slot" data-meal="breakfast"><span class="meal-label">Breakfast</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="lunch"><span class="meal-label">Lunch</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="dinner"><span class="meal-label">Dinner</span><div class="meal-recipes"></div></div>
+                            </div>
+                        </div>
+                        <div class="meal-day" data-day="saturday">
+                            <h4>Saturday</h4>
+                            <div class="meal-slots">
+                                <div class="meal-slot" data-meal="breakfast"><span class="meal-label">Breakfast</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="lunch"><span class="meal-label">Lunch</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="dinner"><span class="meal-label">Dinner</span><div class="meal-recipes"></div></div>
+                            </div>
+                        </div>
+                        <div class="meal-day" data-day="sunday">
+                            <h4>Sunday</h4>
+                            <div class="meal-slots">
+                                <div class="meal-slot" data-meal="breakfast"><span class="meal-label">Breakfast</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="lunch"><span class="meal-label">Lunch</span><div class="meal-recipes"></div></div>
+                                <div class="meal-slot" data-meal="dinner"><span class="meal-label">Dinner</span><div class="meal-recipes"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Management Modal -->
+            <div id="rs-modal-categories" class="rs-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>🏷️ Manage Categories</h3>
+                        <button class="button rs-modal-close" data-modal="rs-modal-categories">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="category-form">
+                            <input type="hidden" id="rs-category-id" value="">
+                            <input type="text" id="rs-category-name" placeholder="Category Name">
+                            <input type="color" id="rs-category-color" value="#0073aa">
+                            <button class="button button-primary" id="rs-btn-save-category">Save</button>
+                        </div>
+                        <div class="category-list" id="rs-category-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add to Meal Plan Modal -->
+            <div id="rs-modal-add-to-plan" class="rs-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>📅 Add to Meal Plan</h3>
+                        <button class="button rs-modal-close" data-modal="rs-modal-add-to-plan">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="rs-add-plan-recipe-id" value="">
+                        <div class="form-field">
+                            <label>Select Plan</label>
+                            <select id="rs-add-plan-selector"></select>
+                        </div>
+                        <div class="form-field">
+                            <label>Day</label>
+                            <select id="rs-add-plan-day">
+                                <option value="monday">Monday</option>
+                                <option value="tuesday">Tuesday</option>
+                                <option value="wednesday">Wednesday</option>
+                                <option value="thursday">Thursday</option>
+                                <option value="friday">Friday</option>
+                                <option value="saturday">Saturday</option>
+                                <option value="sunday">Sunday</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label>Meal</label>
+                            <select id="rs-add-plan-meal">
+                                <option value="breakfast">Breakfast</option>
+                                <option value="lunch">Lunch</option>
+                                <option value="dinner">Dinner</option>
+                            </select>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="button button-primary" id="rs-btn-confirm-add-to-plan">Add to Plan</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Staple Confirmation Modal -->
             <div id="rs-modal-staple" class="rs-modal">
                 <div class="modal-content">
@@ -220,7 +371,7 @@ class RallyShopper_Shortcodes {
                     </div>
                 </div>
             </div>
-            
+
             <!-- Toast Notifications -->
             <div id="rs-toasts"></div>
         </div>
